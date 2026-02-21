@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CinePrompt — AI Video Prompt Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=IM+Fell+English:ital@0;1&family=Inter:wght@400;500;600;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:         #0D0906;
+      --bg2:        #160E09;
+      --surface:    #1E1309;
+      --card:       #F4E4B4;
+      --card-dark:  #E8D49A;
+      --gold:       #C49A2A;
+      --gold-light: #E8BD3A;
+      --gold-dim:   #8A6B1A;
+      --red:        #9B1919;
+      --red-light:  #C42222;
+      --cream:      #FFF8E7;
+      --brown:      #2A1A0A;
+      --brown-mid:  #5A3D25;
+      --brown-lt:   #8B6545;
+      --perf:       #0A0604;
+      --perf-hole:  #2A1E14;
+      --text-on-dark: #F4E4B4;
+      --text-dim:   #A07C5A;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-on-dark);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── FILM STRIP SIDES ── */
+    .film-rail {
+      position: fixed;
+      top: 0; bottom: 0;
+      width: 52px;
+      background: var(--perf);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      overflow: hidden;
+      border-right: 2px solid #2A1E14;
+    }
+    .film-rail.right {
+      right: 0; left: auto;
+      border-right: none;
+      border-left: 2px solid #2A1E14;
+    }
+    .film-rail.left { left: 0; }
+
+    .perf-strip {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 8px 0;
+      animation: slideDown 12s linear infinite;
+    }
+    .film-rail.right .perf-strip {
+      animation: slideUp 12s linear infinite;
+    }
+    @keyframes slideDown {
+      from { transform: translateY(-50%); }
+      to   { transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { transform: translateY(0); }
+      to   { transform: translateY(-50%); }
+    }
+
+    .perf {
+      width: 28px;
+      height: 20px;
+      background: var(--perf-hole);
+      border-radius: 3px;
+      border: 1.5px solid #3D2E1E;
+      flex-shrink: 0;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .page-wrap {
+      margin: 0 54px;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      text-align: center;
+      padding: 48px 24px 36px;
+      position: relative;
+      border-bottom: 1px solid var(--gold-dim);
+    }
+
+    .header-deco {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 8px;
+    }
+
+    .deco-line {
+      flex: 1;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      max-width: 120px;
+    }
+
+    .clapper-icon {
+      font-size: 2rem;
+      filter: drop-shadow(0 0 8px rgba(196,154,42,0.5));
+    }
+
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.8rem, 8vw, 5.5rem);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      color: var(--gold-light);
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 40px rgba(196,154,42,0.2);
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .tagline {
+      font-family: 'IM Fell English', serif;
+      font-style: italic;
+      font-size: 1.05rem;
+      color: var(--text-dim);
+      letter-spacing: 0.02em;
+    }
+
+    .badge-row {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      background: var(--surface);
+      border: 1px solid var(--gold-dim);
+      color: var(--gold);
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 2px;
+    }
+
+    /* ── VIEWFINDER ── */
+    .viewfinder-section {
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .viewfinder {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      aspect-ratio: 16/9;
+      background: #0A0604;
+      border: 3px solid var(--gold-dim);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .viewfinder::before,
+    .viewfinder::after {
+      content: '';
+      position: absolute;
+      width: 24px; height: 24px;
+      border-color: var(--gold);
+      border-style: solid;
+    }
+    .viewfinder::before {
+      top: 8px; left: 8px;
+      border-width: 2px 0 0 2px;
+    }
+    .viewfinder::after {
+      bottom: 8px; right: 8px;
+      border-width: 0 2px 2px 0;
+    }
+
+    .vf-corner {
+      position: absolute;
+      width: 24px; height: 24px;
+      border-color: var(--gold);
+      border-style: solid;
+    }
+    .vf-corner.tr { top: 8px; right: 8px; border-width: 2px 2px 0 0; }
+    .vf-corner.bl { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; }
+
+    .vf-center-cross {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px; height: 20px;
+    }
+    .vf-center-cross::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 0; right: 0;
+      height: 1px;
+      background: var(--gold-dim);
+    }
+    .vf-center-cross::after {
+      content: '';
+      position: absolute;
+      left: 50%; top: 0; bottom: 0;
+      width: 1px;
+      background: var(--gold-dim);
+    }
+
+    .vf-overlay-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(196,154,42,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(196,154,42,0.06) 1px, transparent 1px);
+      background-size: calc(100%/3) calc(100%/3);
+    }
+
+    .vf-label {
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .vf-label.tl { position: absolute; top: 14px; left: 36px; color: var(--gold-dim); }
+    .vf-label.tr-lab { position: absolute; top: 14px; right: 36px; color: var(--gold-dim); }
+    .vf-label.bl-lab { position: absolute; bottom: 14px; left: 36px; color: var(--gold-dim); }
+    .vf-label.br { position: absolute; bottom: 14px; right: 36px; color: var(--gold-dim); }
+
+    .vf-description {
+      text-align: center;
+      padding: 16px;
+      z-index: 2;
+    }
+
+    .vf-scene-text {
+      font-family: 'IM Fell English', serif;
+      font-style: italic;
+      font-size: 1.1rem;
+      color: var(--cream);
+      line-height: 1.5;
+      opacity: 0.9;
+      transition: opacity 0.3s;
+    }
+
+    .vf-meta {
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.6rem;
+      color: var(--gold-dim);
+      margin-top: 8px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ── MAIN FORM ── */
+    .composer {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 24px 60px;
+    }
+
+    .step-section {
+      margin-bottom: 32px;
+    }
+
+    .step-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .step-num {
+      background: var(--red);
+      color: var(--cream);
+      font-family: 'Playfair Display', serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--gold-light);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .step-divider {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--gold-dim), transparent);
+    }
+
+    /* Scene textarea */
+    .scene-input {
+      width: 100%;
+      background: var(--surface);
+      border: 2px solid var(--gold-dim);
+      border-radius: 3px;
+      color: var(--text-on-dark);
+      font-family: 'IM Fell English', serif;
+      font-style: italic;
+      font-size: 1.05rem;
+      padding: 16px 18px;
+      resize: vertical;
+      min-height: 90px;
+      outline: none;
+      transition: border-color 0.2s;
+      line-height: 1.6;
+    }
+    .scene-input::placeholder {
+      color: var(--text-dim);
+      font-style: italic;
+    }
+    .scene-input:focus {
+      border-color: var(--gold);
+      background: #1E1409;
+    }
+
+    /* Option grids */
+    .option-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .option-grid.wide {
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+    .option-grid.generators {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+
+    .option-card {
+      background: var(--surface);
+      border: 2px solid #2A1E14;
+      border-radius: 3px;
+      padding: 14px 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.18s ease;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+    .option-card:hover {
+      border-color: var(--gold-dim);
+      background: #241508;
+    }
+    .option-card.selected {
+      background: var(--card);
+      border-color: var(--gold);
+      color: var(--brown);
+    }
+    .option-card.selected::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--gold);
+    }
+
+    .option-icon {
+      font-size: 1.6rem;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .option-label {
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .option-sublabel {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      margin-top: 3px;
+      line-height: 1.3;
+    }
+    .option-card.selected .option-sublabel {
+      color: var(--brown-mid);
+    }
+
+    /* Generator cards — special */
+    .gen-card {
+      background: var(--surface);
+      border: 2px solid #2A1E14;
+      border-radius: 3px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      position: relative;
+    }
+    .gen-card:hover { border-color: var(--gold-dim); background: #241508; }
+    .gen-card.selected {
+      background: var(--card);
+      border-color: var(--gold);
+    }
+    .gen-card.selected::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--gold);
+    }
+    .gen-name {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--gold-light);
+      margin-bottom: 4px;
+    }
+    .gen-card.selected .gen-name { color: var(--brown); }
+    .gen-desc {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+    .gen-card.selected .gen-desc { color: var(--brown-mid); }
+    .gen-tip {
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-top: 8px;
+    }
+    .gen-card.selected .gen-tip { color: var(--brown-lt); }
+
+    /* ── OUTPUT SECTION ── */
+    .output-section {
+      background: var(--bg2);
+      border-top: 3px solid var(--gold-dim);
+      padding: 40px 24px 60px;
+    }
+
+    .output-inner {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .output-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .output-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: var(--gold-light);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .output-deco {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--gold-dim), transparent);
+    }
+
+    .clap-btn {
+      background: var(--red);
+      color: var(--cream);
+      border: none;
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 14px 32px;
+      cursor: pointer;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.15s, transform 0.1s;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .clap-btn:hover {
+      background: var(--red-light);
+      transform: translateY(-1px);
+    }
+    .clap-btn:active {
+      transform: translateY(0) scale(0.98);
+    }
+    .clap-btn.animating .clap-icon {
+      animation: clap 0.4s ease;
+    }
+    @keyframes clap {
+      0%   { transform: rotate(0deg); }
+      25%  { transform: rotate(-20deg); }
+      50%  { transform: rotate(15deg); }
+      75%  { transform: rotate(-8deg); }
+      100% { transform: rotate(0deg); }
+    }
+    .clap-icon { font-size: 1.3rem; display: inline-block; }
+
+    .prompt-box {
+      background: var(--surface);
+      border: 2px solid var(--gold-dim);
+      border-radius: 3px;
+      padding: 24px;
+      min-height: 120px;
+      position: relative;
+    }
+
+    .prompt-text {
+      font-family: 'Courier Prime', monospace;
+      font-size: 1rem;
+      line-height: 1.8;
+      color: var(--cream);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .prompt-placeholder {
+      font-family: 'IM Fell English', serif;
+      font-style: italic;
+      font-size: 0.95rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    .prompt-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.1em;
+      background: var(--gold);
+      vertical-align: text-bottom;
+      animation: blink 0.8s step-end infinite;
+      margin-left: 2px;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    .prompt-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .copy-btn {
+      background: var(--gold);
+      color: var(--brown);
+      border: none;
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: background 0.15s;
+    }
+    .copy-btn:hover { background: var(--gold-light); }
+    .copy-btn.copied {
+      background: #2A7A2A;
+      color: #fff;
+    }
+
+    .char-count {
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .prompt-tip-box {
+      background: #1E1309;
+      border-left: 3px solid var(--gold);
+      padding: 14px 18px;
+      margin-top: 20px;
+      border-radius: 0 2px 2px 0;
+    }
+
+    .tip-title {
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+
+    .tip-text {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      border-top: 1px solid #2A1E14;
+    }
+    .footer-text {
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #3A2A1A;
+    }
+
+    /* ── DECORATIVE SECTION BREAK ── */
+    .deco-break {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 36px 0 28px;
+      padding: 0 24px;
+    }
+    .deco-break-line {
+      flex: 1;
+      height: 1px;
+      background: #2A1E14;
+    }
+    .deco-break-diamond {
+      width: 8px; height: 8px;
+      background: var(--gold-dim);
+      transform: rotate(45deg);
+      flex-shrink: 0;
+    }
+
+    /* ── FILM FRAME PREVIEW ── */
+    .frames-row {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      margin: 0 auto 0;
+      max-width: 540px;
+      overflow: hidden;
+    }
+
+    .film-frame {
+      flex: 1;
+      border: 2px solid #3A2A1A;
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+      aspect-ratio: 4/3;
+      background: #0A0604;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .film-frame + .film-frame { border-left: none; }
+
+    .frame-content {
+      font-size: 1.5rem;
+      text-align: center;
+    }
+    .frame-label {
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.5rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      text-align: center;
+    }
+
+    /* Sprocket holes above/below frames */
+    .sprocket-row {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      background: #0A0604;
+      height: 14px;
+      border: 1px solid #2A1E14;
+      padding: 0 4px;
+    }
+    .sprocket {
+      width: 10px; height: 8px;
+      background: var(--perf-hole);
+      border-radius: 2px;
+      border: 1px solid #3A2E1A;
+      flex-shrink: 0;
+    }
+
+    .film-strip-preview {
+      max-width: 540px;
+      margin: 0 auto;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 680px) {
+      .page-wrap { margin: 0 32px; }
+      .film-rail { width: 32px; }
+      .perf { width: 18px; height: 14px; }
+      h1 { font-size: 2.4rem; }
+      .option-grid { grid-template-columns: repeat(2, 1fr); }
+      .option-grid.generators { grid-template-columns: repeat(1, 1fr); }
+    }
+
+    /* ── LOADING SHIMMER (unused but available) ── */
+    @keyframes shimmer {
+      from { background-position: -200% 0; }
+      to   { background-position: 200% 0; }
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--card);
+      color: var(--brown);
+      font-family: 'Courier Prime', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 12px 24px;
+      border-radius: 2px;
+      border: 2px solid var(--gold);
+      z-index: 200;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Film rail left -->
+  <div class="film-rail left" aria-hidden="true">
+    <div class="perf-strip" id="perfLeft"></div>
+    <div class="perf-strip" id="perfLeft2"></div>
+  </div>
+
+  <!-- Film rail right -->
+  <div class="film-rail right" aria-hidden="true">
+    <div class="perf-strip" id="perfRight"></div>
+    <div class="perf-strip" id="perfRight2"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+  <div class="page-wrap">
+
+    <!-- HEADER -->
+    <header>
+      <div class="header-deco">
+        <div class="deco-line"></div>
+        <span class="clapper-icon" aria-hidden="true">🎬</span>
+        <div class="deco-line"></div>
+      </div>
+      <h1>CinePrompt</h1>
+      <p class="tagline">Craft perfect AI video prompts — Seedance, Sora, Runway &amp; Pika</p>
+      <div class="badge-row">
+        <span class="badge">35mm Prompt Studio</span>
+        <span class="badge">AI Video Generator</span>
+        <span class="badge">Circa 2026</span>
+      </div>
+    </header>
+
+    <!-- VIEWFINDER PREVIEW -->
+    <div class="viewfinder-section">
+      <div class="viewfinder" role="img" aria-label="Shot preview viewfinder">
+        <div class="vf-overlay-grid" aria-hidden="true"></div>
+        <div class="vf-corner tr" aria-hidden="true"></div>
+        <div class="vf-corner bl" aria-hidden="true"></div>
+        <div class="vf-center-cross" aria-hidden="true"></div>
+        <span class="vf-label tl" id="vfShotType" aria-hidden="true">SHOT TYPE</span>
+        <span class="vf-label tr-lab" id="vfMovement" aria-hidden="true">MOVEMENT</span>
+        <span class="vf-label bl-lab" id="vfLighting" aria-hidden="true">LIGHTING</span>
+        <span class="vf-label br" id="vfMood" aria-hidden="true">MOOD</span>
+        <div class="vf-description">
+          <p class="vf-scene-text" id="vfScene">Describe your scene below<br>and watch it come to life…</p>
+          <p class="vf-meta" id="vfMeta">— SELECT OPTIONS TO BEGIN —</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILM STRIP PREVIEW FRAMES -->
+    <div style="padding: 0 24px;">
+      <div class="film-strip-preview">
+        <div class="sprocket-row" aria-hidden="true" id="sprocketTop"></div>
+        <div class="frames-row" role="img" aria-label="Current shot parameters preview">
+          <div class="film-frame">
+            <span class="frame-content" id="frame1Icon">📷</span>
+            <span class="frame-label" id="frame1Label">Shot</span>
+          </div>
+          <div class="film-frame">
+            <span class="frame-content" id="frame2Icon">🎥</span>
+            <span class="frame-label" id="frame2Label">Move</span>
+          </div>
+          <div class="film-frame">
+            <span class="frame-content" id="frame3Icon">💡</span>
+            <span class="frame-label" id="frame3Label">Light</span>
+          </div>
+          <div class="film-frame">
+            <span class="frame-content" id="frame4Icon">🎭</span>
+            <span class="frame-label" id="frame4Label">Mood</span>
+          </div>
+          <div class="film-frame">
+            <span class="frame-content" id="frame5Icon">🎨</span>
+            <span class="frame-label" id="frame5Label">Grade</span>
+          </div>
+        </div>
+        <div class="sprocket-row" aria-hidden="true" id="sprocketBot"></div>
+      </div>
+    </div>
+
+    <!-- COMPOSER FORM -->
+    <div class="composer">
+
+      <div class="deco-break">
+        <div class="deco-break-line"></div>
+        <div class="deco-break-diamond"></div>
+        <div class="deco-break-line"></div>
+      </div>
+
+      <!-- Step 1: Scene -->
+      <div class="step-section">
+        <div class="step-label">
+          <span class="step-num">I</span>
+          <span class="step-title">Scene Description</span>
+          <div class="step-divider"></div>
+        </div>
+        <textarea
+          class="scene-input"
+          id="sceneInput"
+          placeholder="Describe what happens in your shot… (e.g. 'a lone cowboy rides toward a burning oil derrick at sunset, dust rising behind him')"
+          aria-label="Scene description"
+          maxlength="500"
+          rows="3"
+        ></textarea>
+      </div>
+
+      <!-- Step 2: Shot Type -->
+      <div class="step-section">
+        <div class="step-label">
+          <span class="step-num">II</span>
+          <span class="step-title">Shot Type</span>
+          <div class="step-divider"></div>
+        </div>
+        <div class="option-grid" role="group" aria-label="Select shot type" id="shotTypeGrid"></div>
+      </div>
+
+      <!-- Step 3: Camera Movement -->
+      <div class="step-section">
+        <div class="step-label">
+          <span class="step-num">III</span>
+          <span class="step-title">Camera Movement</span>
+          <div class="step-divider"></div>
+        </div>
+        <div class="option-grid" role="group" aria-label="Select camera movement" id="movementGrid"></div>
+      </div>
+
+      <!-- Step 4: Lighting -->
+      <div class="step-section">
+        <div class="step-label">
+          <span class="step-num">IV</span>
+          <span class="step-title">Lighting Mood</span>
+          <div class="step-divider"></div>
+        </div>
+        <div class="option-grid" role="group" aria-label="Select lighting" id="lightingGrid"></div>
+      </div>
+
+      <!-- Step 5: Tone/Mood -->
+      <div class="step-section">
+        <div class="step-label">
+          <span class="step-num">V</span>
+          <span class="step-title">Tone & Mood</span>
+          <div class="step-divider"></div>
+        </div>
+        <div class="option-grid wide" role="group" aria-label="Select tone and mood" id="moodGrid"></div>
+      </div>
+
+      <!-- Step 6: Color Grade -->
+      <div class="step-section">
+        <div class="step-label">
+          <span class="step-num">VI</span>
+          <span class="step-title">Color Grade</span>
+          <div class="step-divider"></div>
+        </div>
+        <div class="option-grid wide" role="group" aria-label="Select color grade" id="gradeGrid"></div>
+      </div>
+
+      <!-- Step 7: Generator -->
+      <div class="step-section">
+        <div class="step-label">
+          <span class="step-num">VII</span>
+          <span class="step-title">Target Generator</span>
+          <div class="step-divider"></div>
+        </div>
+        <div class="option-grid generators" role="group" aria-label="Select AI video generator" id="generatorGrid"></div>
+      </div>
+
+    </div><!-- /composer -->
+
+    <!-- OUTPUT SECTION -->
+    <div class="output-section">
+      <div class="output-inner">
+        <div class="output-header">
+          <span class="output-title">🎞 Your Shot</span>
+          <div class="output-deco"></div>
+        </div>
+
+        <button class="clap-btn" id="generateBtn" aria-label="Generate prompt">
+          <span class="clap-icon" id="clapIcon" aria-hidden="true">🎬</span>
+          <span>CALL ACTION</span>
+        </button>
+
+        <div class="prompt-box" aria-live="polite" aria-label="Generated prompt">
+          <div id="promptDisplay">
+            <p class="prompt-placeholder">Hit <strong>CALL ACTION</strong> to generate your cinematic prompt — or fill in the scene description and watch it appear automatically.</p>
+          </div>
+        </div>
+
+        <div class="prompt-actions" id="promptActions" style="display:none;">
+          <button class="copy-btn" id="copyBtn" aria-label="Copy prompt to clipboard">⬛ SLATE IT — COPY PROMPT</button>
+          <span class="char-count" id="charCount"></span>
+        </div>
+
+        <div class="prompt-tip-box" id="tipBox" style="display:none;">
+          <p class="tip-title" id="tipTitle">💡 Pro Tip</p>
+          <p class="tip-text" id="tipText"></p>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p class="footer-text">CinePrompt &nbsp;✦&nbsp; AI Video Prompt Studio &nbsp;✦&nbsp; Built in the Golden Age of Synthetic Cinema &nbsp;✦&nbsp; 2026</p>
+    </footer>
+
+  </div><!-- /page-wrap -->
+
+  <script>
+    // ── DATA DEFINITIONS ──────────────────────────────────────────────────────
+
+    const SHOT_TYPES = [
+      { id: 'wide',         icon: '🌄', label: 'Wide / Establishing', sub: 'Full environment context', phrase: 'Wide establishing shot' },
+      { id: 'medium',       icon: '👤', label: 'Medium Shot',          sub: 'Waist-up, conversational', phrase: 'Medium shot' },
+      { id: 'closeup',      icon: '👁️', label: 'Close-Up',            sub: 'Face, detail, emotion', phrase: 'Tight close-up' },
+      { id: 'aerial',       icon: '🚁', label: 'Aerial / Drone',       sub: 'Bird\'s eye perspective', phrase: 'Sweeping aerial drone shot' },
+      { id: 'tracking',     icon: '🎯', label: 'Tracking Shot',        sub: 'Follows the subject', phrase: 'Dynamic tracking shot following' },
+      { id: 'pov',          icon: '👀', label: 'POV / First Person',   sub: 'Through the subject\'s eyes', phrase: 'Immersive first-person POV shot of' },
+    ];
+
+    const MOVEMENTS = [
+      { id: 'static',   icon: '🧱', label: 'Static / Locked',  sub: 'Unmoving, deliberate', phrase: 'Camera holds perfectly still' },
+      { id: 'dollyin',  icon: '➡️', label: 'Dolly In',         sub: 'Slow push toward subject', phrase: 'Camera slowly dollies in' },
+      { id: 'pan',      icon: '↔️', label: 'Pan',               sub: 'Horizontal sweep', phrase: 'Camera pans smoothly across' },
+      { id: 'crane',    icon: '⬆️', label: 'Crane / Tilt Up',  sub: 'Dramatic vertical rise', phrase: 'Camera cranes dramatically upward' },
+      { id: 'orbit',    icon: '🔄', label: 'Orbit / Arc',       sub: 'Circles the subject', phrase: 'Camera orbits the subject in a slow arc' },
+      { id: 'handheld', icon: '📳', label: 'Handheld',          sub: 'Gritty, immediate feel', phrase: 'Tense handheld camera movement' },
+    ];
+
+    const LIGHTINGS = [
+      { id: 'golden',   icon: '🌅', label: 'Golden Hour',     sub: 'Warm amber sunlight', phrase: 'bathed in warm golden hour sunlight, long shadows, amber glow' },
+      { id: 'neon',     icon: '🌆', label: 'Neon Night',      sub: 'Urban electric color', phrase: 'lit by vivid neon signs, colorful reflections on wet pavement' },
+      { id: 'fog',      icon: '🌫️', label: 'Foggy / Misty',   sub: 'Soft atmospheric light', phrase: 'shrouded in atmospheric fog, diffused ethereal light' },
+      { id: 'harsh',    icon: '☀️', label: 'Harsh Daylight',  sub: 'High-contrast shadows', phrase: 'under harsh overhead sunlight, deep sharp shadows, bleached highlights' },
+      { id: 'candle',   icon: '🕯️', label: 'Candlelight',    sub: 'Intimate warm flicker', phrase: 'lit only by candlelight, warm flickering orange glow, deep shadows' },
+      { id: 'studio',   icon: '💡', label: 'Cinematic Studio', sub: 'Controlled dramatic', phrase: 'under precise cinematic studio lighting, Rembrandt triangle, dramatic contrast' },
+    ];
+
+    const MOODS = [
+      { id: 'epic',         icon: '⚡', label: 'Epic',         sub: 'Grand, larger than life', phrase: 'epic and monumental in scale, awe-inspiring grandeur' },
+      { id: 'thriller',     icon: '😨', label: 'Thriller',    sub: 'Tense and suspenseful', phrase: 'tense thriller atmosphere, dread and suspense' },
+      { id: 'romantic',     icon: '💕', label: 'Romantic',    sub: 'Soft, intimate, longing', phrase: 'tender romantic mood, soft intimate warmth' },
+      { id: 'comedic',      icon: '😄', label: 'Comedic',     sub: 'Light, playful energy', phrase: 'light and playful comedic energy' },
+      { id: 'horror',       icon: '💀', label: 'Horror',      sub: 'Dread and unease', phrase: 'unsettling horror atmosphere, creeping dread' },
+      { id: 'documentary',  icon: '📰', label: 'Documentary', sub: 'Raw, authentic, real', phrase: 'raw documentary-style authenticity' },
+      { id: 'action',       icon: '💥', label: 'Action',      sub: 'High-energy kinetic', phrase: 'high-energy kinetic action pace' },
+      { id: 'melancholy',   icon: '🌧️', label: 'Melancholy',  sub: 'Quiet, reflective sorrow', phrase: 'quiet melancholy, reflective sadness, bittersweet' },
+    ];
+
+    const GRADES = [
+      { id: 'blockbuster', icon: '🎬', label: 'Teal & Orange',    sub: 'Hollywood blockbuster', phrase: 'teal and orange Hollywood blockbuster color grade' },
+      { id: 'vintage',     icon: '📽️', label: 'Vintage Film',    sub: 'Desaturated, warm fade', phrase: 'desaturated vintage film look with warm fades and light leaks' },
+      { id: 'bw',          icon: '⬜', label: 'Black & White',    sub: 'Classic monochrome', phrase: 'timeless black and white classic cinema aesthetic' },
+      { id: 'vivid',       icon: '🌈', label: 'Hyper-Vivid',      sub: 'Bold saturated colors', phrase: 'hyper-saturated vivid color palette, punchy and bold' },
+      { id: 'cool',        icon: '🩵', label: 'Cool / Bleach',    sub: 'Desaturated blue-gray', phrase: 'cool desaturated bleach bypass color grade, silver tones' },
+      { id: 'natural',     icon: '🌿', label: 'Natural',          sub: 'True to life tones', phrase: 'natural true-to-life color grading, minimal processing' },
+    ];
+
+    const GENERATORS = [
+      {
+        id: 'seedance',
+        name: 'Seedance 2.0',
+        desc: 'ByteDance\'s hyperrealistic model. Stunning cinematic quality. Best with natural language scene descriptions.',
+        tip: 'Write as a film director briefing their DP — describe what you see, not what you want.',
+        format: 'natural',
+      },
+      {
+        id: 'sora',
+        name: 'Sora',
+        desc: 'OpenAI\'s long-form video model. Excellent at complex narratives, physics, and multi-scene continuity.',
+        tip: 'Include physical actions and temporal progression. Sora excels at motion and cause-effect.',
+        format: 'narrative',
+      },
+      {
+        id: 'runway',
+        name: 'RunwayML Gen-4',
+        desc: 'Fast, reliable, and creative. Responds well to style references and keyword modifiers.',
+        tip: 'Add style keywords and negative prompts. Use --camera and --motion flags if available.',
+        format: 'keyword',
+      },
+      {
+        id: 'pika',
+        name: 'Pika 2.0',
+        desc: 'Great for short punchy clips and viral content. Concise prompts work best. Fast iteration.',
+        tip: 'Keep it under 80 words. Focus on the single most important visual element. Pika rewards specificity.',
+        format: 'concise',
+      },
+    ];
+
+    // ── STATE ─────────────────────────────────────────────────────────────────
+
+    const state = {
+      scene: '',
+      shotType: 'wide',
+      movement: 'static',
+      lighting: 'golden',
+      mood: 'epic',
+      grade: 'blockbuster',
+      generator: 'seedance',
+    };
+
+    let currentPrompt = '';
+    let typewriterTimer = null;
+
+    // ── FILM RAIL SETUP ───────────────────────────────────────────────────────
+
+    function buildRail(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      let html = '';
+      for (let i = 0; i < 60; i++) html += '<div class="perf"></div>';
+      el.innerHTML = html;
+    }
+
+    function buildSprocket(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      let html = '';
+      for (let i = 0; i < 20; i++) html += '<div class="sprocket"></div>';
+      el.innerHTML = html;
+    }
+
+    // ── OPTION GRID BUILDER ───────────────────────────────────────────────────
+
+    function buildGrid(containerId, items, stateKey, onSelect) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'option-card' + (state[stateKey] === item.id ? ' selected' : '');
+        card.setAttribute('role', 'radio');
+        card.setAttribute('aria-checked', state[stateKey] === item.id ? 'true' : 'false');
+        card.setAttribute('aria-label', item.label);
+        card.setAttribute('tabindex', '0');
+        card.dataset.id = item.id;
+        card.innerHTML = `
+          <span class="option-icon">${item.icon}</span>
+          <span class="option-label">${item.label}</span>
+          ${item.sub ? `<span class="option-sublabel">${item.sub}</span>` : ''}
+        `;
+        card.addEventListener('click', () => {
+          state[stateKey] = item.id;
+          rebuildGrid(containerId, items, stateKey);
+          onSelect(item);
+          updateAll();
+        });
+        card.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            card.click();
+          }
+        });
+        container.appendChild(card);
+      });
+    }
+
+    function rebuildGrid(containerId, items, stateKey) {
+      const cards = document.querySelectorAll(`#${containerId} .option-card`);
+      cards.forEach(card => {
+        const isSelected = card.dataset.id === state[stateKey];
+        card.classList.toggle('selected', isSelected);
+        card.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+      });
+    }
+
+    function buildGeneratorGrid() {
+      const container = document.getElementById('generatorGrid');
+      container.innerHTML = '';
+      GENERATORS.forEach(gen => {
+        const card = document.createElement('div');
+        card.className = 'gen-card' + (state.generator === gen.id ? ' selected' : '');
+        card.setAttribute('role', 'radio');
+        card.setAttribute('aria-checked', state.generator === gen.id ? 'true' : 'false');
+        card.setAttribute('aria-label', gen.name);
+        card.setAttribute('tabindex', '0');
+        card.dataset.id = gen.id;
+        card.innerHTML = `
+          <div class="gen-name">${gen.name}</div>
+          <div class="gen-desc">${gen.desc}</div>
+          <div class="gen-tip">💡 ${gen.tip}</div>
+        `;
+        card.addEventListener('click', () => {
+          state.generator = gen.id;
+          document.querySelectorAll('#generatorGrid .gen-card').forEach(c => {
+            const sel = c.dataset.id === gen.id;
+            c.classList.toggle('selected', sel);
+            c.setAttribute('aria-checked', sel ? 'true' : 'false');
+          });
+          updateAll();
+        });
+        card.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+        });
+        container.appendChild(card);
+      });
+    }
+
+    // ── PROMPT GENERATOR ─────────────────────────────────────────────────────
+
+    function generatePrompt() {
+      const shot  = SHOT_TYPES.find(s => s.id === state.shotType);
+      const move  = MOVEMENTS.find(m => m.id === state.movement);
+      const light = LIGHTINGS.find(l => l.id === state.lighting);
+      const mood  = MOODS.find(m => m.id === state.mood);
+      const grade = GRADES.find(g => g.id === state.grade);
+      const gen   = GENERATORS.find(g => g.id === state.generator);
+
+      const scene = state.scene.trim() || 'a dramatic cinematic moment';
+
+      let prompt = '';
+
+      if (gen.format === 'natural' || gen.format === 'narrative') {
+        // Seedance / Sora — rich prose
+        prompt = `${shot.phrase} of ${scene}. ${move.phrase}, ${light.phrase}. ${mood.phrase.charAt(0).toUpperCase() + mood.phrase.slice(1)}. Finished with a ${grade.phrase}.`;
+        if (gen.format === 'narrative') {
+          // Sora likes a bit more temporal framing
+          prompt = `A cinematic video of ${scene}. ${shot.phrase}, ${move.phrase}. The environment is ${light.phrase}. The tone is ${mood.phrase}. ${grade.phrase.charAt(0).toUpperCase() + grade.phrase.slice(1)}, 24fps, photorealistic.`;
+        }
+      } else if (gen.format === 'keyword') {
+        // RunwayML — keyword heavy
+        const keywords = [
+          scene,
+          shot.label.toLowerCase(),
+          move.label.toLowerCase() + ' camera',
+          light.label.toLowerCase() + ' lighting',
+          mood.label.toLowerCase() + ' mood',
+          grade.label.toLowerCase() + ' grade',
+          'cinematic',
+          '4K',
+          'film grain',
+        ];
+        prompt = keywords.join(', ') + ' --style cinematic --quality high --fps 24';
+      } else {
+        // Pika — short and punchy
+        const parts = [
+          scene,
+          `${shot.label.toLowerCase()}`,
+          `${light.label.toLowerCase()} lighting`,
+          `${mood.label.toLowerCase()} mood`,
+          `${grade.label.toLowerCase()} color grade`,
+          'cinematic quality',
+        ];
+        prompt = parts.join('. ') + '.';
+        // Keep under ~100 words for Pika
+        if (prompt.split(' ').length > 50) {
+          prompt = `${scene}, ${light.label.toLowerCase()} lighting, ${mood.label.toLowerCase()} mood, cinematic.`;
+        }
+      }
+
+      return prompt;
+    }
+
+    // ── TYPEWRITER EFFECT ─────────────────────────────────────────────────────
+
+    function typewriterDisplay(text, onDone) {
+      const display = document.getElementById('promptDisplay');
+      clearTimeout(typewriterTimer);
+
+      let i = 0;
+      const speed = Math.max(12, Math.min(30, 2000 / text.length));
+
+      function step() {
+        const shown = text.slice(0, i);
+        display.innerHTML = `<span class="prompt-text">${escHtml(shown)}<span class="prompt-cursor" aria-hidden="true"></span></span>`;
+        if (i < text.length) {
+          i++;
+          typewriterTimer = setTimeout(step, speed);
+        } else {
+          display.innerHTML = `<span class="prompt-text">${escHtml(text)}</span>`;
+          if (onDone) onDone();
+        }
+      }
+      step();
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── UPDATE ALL ────────────────────────────────────────────────────────────
+
+    let autoGenerateTimer = null;
+
+    function updateAll() {
+      updateViewfinder();
+      updateFilmFrames();
+      // Auto-generate if user has a scene
+      clearTimeout(autoGenerateTimer);
+      if (state.scene.trim() || true) {
+        autoGenerateTimer = setTimeout(autoGenerate, 400);
+      }
+    }
+
+    function autoGenerate() {
+      const prompt = generatePrompt();
+      currentPrompt = prompt;
+      typewriterDisplay(prompt, () => {
+        document.getElementById('promptActions').style.display = 'flex';
+        document.getElementById('charCount').textContent = `${prompt.length} chars · ${prompt.split(/\s+/).length} words`;
+        showTip();
+      });
+    }
+
+    function updateViewfinder() {
+      const shot  = SHOT_TYPES.find(s => s.id === state.shotType);
+      const move  = MOVEMENTS.find(m => m.id === state.movement);
+      const light = LIGHTINGS.find(l => l.id === state.lighting);
+      const mood  = MOODS.find(m => m.id === state.mood);
+
+      document.getElementById('vfShotType').textContent = (shot?.label || 'SHOT').toUpperCase();
+      document.getElementById('vfMovement').textContent = (move?.label || 'MOVE').toUpperCase();
+      document.getElementById('vfLighting').textContent = (light?.label || 'LIGHT').toUpperCase();
+      document.getElementById('vfMood').textContent = (mood?.label || 'MOOD').toUpperCase();
+
+      const sceneText = state.scene.trim();
+      document.getElementById('vfScene').textContent =
+        sceneText ? sceneText : (shot?.label + ' · ' + mood?.label);
+
+      const gen = GENERATORS.find(g => g.id === state.generator);
+      document.getElementById('vfMeta').textContent = `— ${gen?.name?.toUpperCase() || 'SEEDANCE'} READY —`;
+    }
+
+    function updateFilmFrames() {
+      const shot  = SHOT_TYPES.find(s => s.id === state.shotType);
+      const move  = MOVEMENTS.find(m => m.id === state.movement);
+      const light = LIGHTINGS.find(l => l.id === state.lighting);
+      const mood  = MOODS.find(m => m.id === state.mood);
+      const grade = GRADES.find(g => g.id === state.grade);
+
+      document.getElementById('frame1Icon').textContent = shot?.icon || '📷';
+      document.getElementById('frame1Label').textContent = shot?.id?.toUpperCase() || 'SHOT';
+
+      document.getElementById('frame2Icon').textContent = move?.icon || '🎥';
+      document.getElementById('frame2Label').textContent = move?.id?.toUpperCase() || 'MOVE';
+
+      document.getElementById('frame3Icon').textContent = light?.icon || '💡';
+      document.getElementById('frame3Label').textContent = light?.id?.toUpperCase() || 'LIGHT';
+
+      document.getElementById('frame4Icon').textContent = mood?.icon || '🎭';
+      document.getElementById('frame4Label').textContent = mood?.id?.toUpperCase() || 'MOOD';
+
+      document.getElementById('frame5Icon').textContent = grade?.icon || '🎨';
+      document.getElementById('frame5Label').textContent = grade?.id?.toUpperCase() || 'GRADE';
+    }
+
+    function showTip() {
+      const gen = GENERATORS.find(g => g.id === state.generator);
+      if (!gen) return;
+      const tipBox = document.getElementById('tipBox');
+      document.getElementById('tipTitle').textContent = `💡 ${gen.name} Tip`;
+      document.getElementById('tipText').textContent = gen.tip;
+      tipBox.style.display = 'block';
+    }
+
+    // ── COPY ─────────────────────────────────────────────────────────────────
+
+    function copyPrompt() {
+      if (!currentPrompt) return;
+      navigator.clipboard.writeText(currentPrompt).then(() => {
+        const btn = document.getElementById('copyBtn');
+        btn.classList.add('copied');
+        btn.textContent = '✅ SLATED — COPIED!';
+        showToast('Prompt copied to clipboard — ready to paste into your generator!');
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.textContent = '⬛ SLATE IT — COPY PROMPT';
+        }, 2200);
+      }).catch(() => {
+        showToast('Could not copy — select and copy the text manually.');
+      });
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // ── GENERATE BUTTON ───────────────────────────────────────────────────────
+
+    function handleGenerate() {
+      const btn = document.getElementById('generateBtn');
+      btn.classList.add('animating');
+      setTimeout(() => btn.classList.remove('animating'), 500);
+
+      const prompt = generatePrompt();
+      currentPrompt = prompt;
+      typewriterDisplay(prompt, () => {
+        document.getElementById('promptActions').style.display = 'flex';
+        document.getElementById('charCount').textContent = `${prompt.length} chars · ${prompt.split(/\s+/).length} words`;
+        showTip();
+      });
+    }
+
+    // ── INIT ─────────────────────────────────────────────────────────────────
+
+    function init() {
+      // Build film rails
+      buildRail('perfLeft');
+      buildRail('perfLeft2');
+      buildRail('perfRight');
+      buildRail('perfRight2');
+      buildSprocket('sprocketTop');
+      buildSprocket('sprocketBot');
+
+      // Build grids
+      buildGrid('shotTypeGrid', SHOT_TYPES, 'shotType', () => {});
+      buildGrid('movementGrid', MOVEMENTS, 'movement', () => {});
+      buildGrid('lightingGrid', LIGHTINGS, 'lighting', () => {});
+      buildGrid('moodGrid', MOODS, 'mood', () => {});
+      buildGrid('gradeGrid', GRADES, 'grade', () => {});
+      buildGeneratorGrid();
+
+      // Scene input listener
+      document.getElementById('sceneInput').addEventListener('input', e => {
+        state.scene = e.target.value;
+        updateAll();
+      });
+
+      // Generate button
+      document.getElementById('generateBtn').addEventListener('click', handleGenerate);
+
+      // Copy button
+      document.getElementById('copyBtn').addEventListener('click', copyPrompt);
+
+      // Initial state
+      updateAll();
+
+      // Show tip right away
+      setTimeout(showTip, 600);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
